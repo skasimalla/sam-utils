@@ -1,6 +1,2 @@
-accessToken=7a6fe81e-e9df-43e5-9dac-c74b9a5b3918
-baseUrl=http://atomicitysystems.eastus.cloudapp.azure.com:8983/solr/nbcu_search
-widgets_api=https://widget.devusz.nbcuni.com/api/widgets
-localizationAPI=http://localization.devusz.nbcuni.com/api/localizations
-linksAPI=https://widget.devusz.nbcuni.com/api/links
-elementsSuffix=elements
+accessToken=xxxx
+baseUrl=http://atomicitysystems.eastus.cloudapp.azure.com:8983/solr/sam1

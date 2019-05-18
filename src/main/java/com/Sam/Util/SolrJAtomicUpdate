@@ -1,0 +1,58 @@
+package com.Sam.Util;
+
+import java.io.IOException;
+import java.util.List;
+
+import org.apache.solr.client.solrj.SolrQuery;
+import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.impl.HttpSolrClient;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
+import org.apache.solr.common.SolrInputDocument;
+
+public class SolrJAtomicUpdate {
+public static void main(String[] args) {
+// TODO Auto-generated method stub
+// create the SolrJ client
+System.out.println(args.length);
+String string= args[0];
+
+String s = "http://server:8983/solr/coll1/";
+HttpSolrClient sc = new HttpSolrClient.Builder(s).build();
+SolrQuery query = new SolrQuery();
+query.set("q", "field:\"Document\"");
+query.set("rows", "1000");
+try {
+QueryResponse response = sc.query(query);
+List<SolrDocument> li = response.getResults();
+System.out.println(li.size());
+int i=0;
+for (SolrDocument sd : li) {
+System.out.println(sd.getFieldValue("id"));
+SolrInputDocument si = new SolrInputDocument();
+for (String name : sd.getFieldNames()) {
+si.addField(name, sd.getFieldValue(name));
+}
+//si.removeField("id");
+si.removeField("_version_");
+si.setField("field", "Document2");
+
+try {
+sc.add(si);
+} catch (IOException e) {
+// TODO Auto-generated catch block
+e.printStackTrace();
+}
+
+if(i++ % 100==0)
+sc.commit();
+
+}
+sc.commit();
+} catch (SolrServerException e) {
+e.printStackTrace();
+} catch (IOException e1) {
+e1.printStackTrace();
+}
+}
+}

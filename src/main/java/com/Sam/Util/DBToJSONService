@@ -1,0 +1,120 @@
+
+
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.util.HashMap;
+import javax.sql.DataSource;
+
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
+@Service
+public class DBService {
+
+	private Logger log = LoggerFactory.getLogger(DBService.class);
+
+	@Autowired
+	private SchemaDto z;
+
+	@Autowired
+	@Qualifier("dataSourceHana")
+	private DataSource dataSourceHana;
+
+	public static void main(String[] args) {
+		System.out.println(new DBService().getFields("open-orders"));
+
+	}
+
+	@Cacheable
+	public String get(String queryFileName, HashMap<String, String> hm) {
+		String ret = null;
+		try {
+			String query = IOUtils.toString(
+					getClass().getClassLoader().getResourceAsStream("sql/" + queryFileName + ".sql"),
+					StandardCharsets.UTF_8);
+			Connection con = dataSourceHana.getConnection();
+			con.setSchema(z.getSchemaName());
+			// hm.put("schema",z.getSchemaName());
+			query = replacePlaceHolders(query, hm);
+			log.info("Query to be executed:" + query.replace("\n", " ").replace("\r", " "));
+			ResultSet rs = con.prepareStatement(query).executeQuery();
+
+			JsonArray jsonArray = new JsonArray();
+			while (rs.next()) {
+				int colCount = rs.getMetaData().getColumnCount();
+				JsonObject obj = new JsonObject();
+				for (int i = 0; i < colCount; i++) {
+					String str = rs.getMetaData().getColumnLabel(i + 1);
+					obj.addProperty(str.substring(0, 1).toLowerCase() + str.substring(1), (String) rs.getString(i + 1));
+				}
+				jsonArray.add(obj);
+			}
+			ret = jsonArray.toString();
+			con.close();
+
+		} catch (Exception e) {
+			log.info("Error {}" + e.getMessage(), e.getStackTrace());
+		}
+
+		return ret;
+	}
+
+	public String replacePlaceHolders(String originalString, HashMap<String, String> hm) {
+
+		for (String s : hm.keySet())
+			originalString = originalString.replaceAll("\\$\\{" + s + "\\}", hm.get(s));
+		return originalString;
+
+	}
+
+	public String getFields(String queryFileName) {
+		String ret = null;
+		try {
+			String query = IOUtils.toString(
+					getClass().getClassLoader().getResourceAsStream("sql/" + queryFileName + ".sql"),
+					StandardCharsets.UTF_8);
+			JsonArray jsonArray = new JsonArray();
+			String[] rawFields = query.split(",");
+			for (String s : rawFields) {
+				JsonObject obj = new JsonObject();
+				s = s.replace("\r", "").replace(",", "").replace("\"", "");
+				if (!s.contains(" as "))
+					continue;
+				if (s.contains("from"))
+					break;
+				obj.addProperty("key", addSpacesAtCaps(s.split(" as ")[1].trim()));
+				obj.addProperty("value", s.split(" as ")[0].trim().replaceAll("select .*\n", ""));
+				//System.out.println(obj);
+				jsonArray.add(obj);
+			}
+			ret = jsonArray.toString();
+		} catch (Exception e) {
+			log.info("Error {}" + e.getMessage(), e.getStackTrace());
+		}
+
+		return ret;
+	}
+
+	public String addSpacesAtCaps(String s) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(s.charAt(0));
+		for (int i = 1; i < s.length(); i++) {
+			if (Character.isUpperCase(s.charAt(i)) && !Character.isUpperCase(s.charAt(i - 1))) {
+				sb.append(' ');
+			}
+			sb.append(s.charAt(i));
+		}
+		return sb.toString();
+	}
+
+}
